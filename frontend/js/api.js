@@ -51,6 +51,25 @@ async function apiTranscribeFile(file) {
 }
 
 /**
+ * Upload and summarize a document (PDF, DOCX, PPTX).
+ */
+async function apiUploadDocument(file, summaryLength = 'medium') {
+  const token = await getIdToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('summary_length', summaryLength);
+
+  const res = await fetch(`${API_BASE}/api/upload-document`, {
+    method : 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body   : formData,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Document processing failed');
+  return data;
+}
+
+/**
  * Transcribe from a YouTube / remote URL.
  */
 async function apiTranscribeUrl(url) {

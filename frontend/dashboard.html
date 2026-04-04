@@ -25,6 +25,142 @@
      MODALS
      ═══════════════════════════════════════════════════════════════════════ -->
 
+<!-- Settings Modal -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal modal-settings-panel" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
+    <div class="modal-header">
+      <div class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+        <span id="modal-settings-title">Settings</span>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-settings')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body settings-body">
+
+      <!-- 🎨 Appearance -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+            <circle cx="12" cy="12" r="10"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          Appearance
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <span>Theme</span>
+            <span class="settings-hint">Switch between dark and light mode</span>
+          </div>
+          <label class="settings-toggle-switch">
+            <input type="checkbox" id="settings-theme-toggle" onchange="settingsToggleTheme(this.checked)">
+            <span class="settings-toggle-track">
+              <span class="settings-toggle-thumb"></span>
+            </span>
+            <span class="settings-toggle-label" id="settings-theme-label">Dark</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 📝 Summarization Defaults -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Summarization Defaults
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <span>Default summary length</span>
+            <span class="settings-hint">Applied to all new summaries</span>
+          </div>
+          <div class="settings-btn-group">
+            <button class="settings-opt-btn" id="sopt-short" onclick="setDefaultLength('short')">Short</button>
+            <button class="settings-opt-btn active" id="sopt-medium" onclick="setDefaultLength('medium')">Medium</button>
+            <button class="settings-opt-btn" id="sopt-long" onclick="setDefaultLength('long')">Long</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🔊 Transcription -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+          </svg>
+          Transcription
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <span>Default Whisper model</span>
+            <span class="settings-hint">Larger = more accurate but slower</span>
+          </div>
+          <select class="settings-select" id="settings-model-select" onchange="setDefaultModel(this.value)">
+            <option value="tiny">Tiny (fastest)</option>
+            <option value="base" selected>Base (balanced)</option>
+            <option value="small">Small (accurate)</option>
+            <option value="medium">Medium (best)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 👤 Account -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+          Account
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <span>Display name</span>
+            <span class="settings-hint" id="settings-display-name">Loading…</span>
+          </div>
+          <div></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <span>Email</span>
+            <span class="settings-hint" id="settings-email">Loading…</span>
+          </div>
+          <div></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <span>Password</span>
+            <span class="settings-hint">Send a reset link to your email</span>
+          </div>
+          <button class="settings-action-btn" onclick="sendPasswordReset()">Send Reset Link</button>
+        </div>
+      </div>
+
+      <!-- ⚠️ Danger Zone -->
+      <div class="settings-section settings-danger">
+        <div class="settings-section-title" style="color: #ef4444;">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px; stroke:#ef4444;">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Danger Zone
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">
+            <span>Delete all my records</span>
+            <span class="settings-hint">This action is permanent and cannot be undone.</span>
+          </div>
+          <button class="settings-action-btn settings-action-danger" onclick="deleteAllRecords()">Delete All</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-settings')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Upload File Modal -->
 <div class="modal-overlay" id="modal-upload">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-upload-title">
@@ -70,6 +206,59 @@
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
         Transcribe &amp; Summarize
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Document Modal -->
+<div class="modal-overlay" id="modal-document">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-document-title">
+    <div class="modal-header">
+      <div class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span id="modal-document-title">Upload Document</span>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-document')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="upload-drop-zone" id="document-drop-zone"
+           onclick="document.getElementById('document-input').click()"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDocDrop(event)">
+        <div class="upload-drop-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <div class="upload-drop-title">Drag & drop or click to select</div>
+        <div class="upload-drop-sub">PDF, DOCX, PPTX supported</div>
+        <div class="upload-filename" id="document-filename"></div>
+      </div>
+      <input type="file" id="document-input" accept=".pdf,.docx,.pptx"
+             style="display:none;" onchange="handleDocSelect(this.files[0])" />
+
+      <div class="length-selector" style="margin-top:18px;">
+        <span class="length-label">Summary length:</span>
+        <button class="length-btn" id="document-len-short"  onclick="setLength('document','short')">Short</button>
+        <button class="length-btn active" id="document-len-medium" onclick="setLength('document','medium')">Medium</button>
+        <button class="length-btn" id="document-len-long"   onclick="setLength('document','long')">Long</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-document')">Cancel</button>
+      <button class="btn-submit" id="btn-submit-document" onclick="submitDocument()" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+        Upload &amp; Summarize
       </button>
     </div>
   </div>
@@ -155,91 +344,124 @@
 
 <!-- Record Detail Modal -->
 <div class="modal-overlay" id="modal-record">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-record-title">
+  <div class="modal modal-large" role="dialog" aria-modal="true">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">📄 Record Detail</div>
+        <div id="record-meta" style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+          Source • Date • Type
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-record')">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="record-tabs">
+      <button class="tab-btn active" onclick="switchRecordTab('transcript')">Transcript</button>
+      <button class="tab-btn" onclick="switchRecordTab('summary')">Summary</button>
+      <button class="tab-btn" onclick="switchRecordTab('points')">Key Points</button>
+    </div>
+
+    <!-- Content -->
+    <div class="modal-body">
+
+      <!-- Transcript -->
+      <div class="record-tab-content active" id="tab-transcript">
+        <div class="tab-header">
+          <span>Transcript</span>
+          <button class="btn-copy" onclick="copyText('record-transcript-text')">Copy</button>
+        </div>
+        <div class="tab-body">
+          <p id="record-transcript-text">No transcript available</p>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="record-tab-content" id="tab-summary">
+        <div class="tab-header">
+          <span>Summary</span>
+          <button class="btn-copy" onclick="copyText('record-summary-text')">Copy</button>
+        </div>
+        <div class="tab-body">
+          <p id="record-summary-text">No summary available</p>
+        </div>
+      </div>
+
+      <!-- Key Points -->
+      <div class="record-tab-content" id="tab-points">
+        <div class="tab-header">
+          <span>Key Points</span>
+          <button class="btn-copy" onclick="copyText('record-key-points-text')">Copy</button>
+        </div>
+        <div class="tab-body">
+          <ul id="record-key-points-text"></ul>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-record')">Close</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
     <div class="modal-header">
       <div class="modal-title">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10 9 9 9 8 9"/>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m3.08 3.08l4.24 4.24M1 12h6m6 0h6m-16.78 7.78l4.24-4.24m3.08-3.08l4.24-4.24"></path>
         </svg>
-        <span id="modal-record-title">Record Detail</span>
+        <span id="modal-settings-title">Settings</span>
       </div>
-      <button class="modal-close" onclick="closeModal('modal-record')" aria-label="Close">✕</button>
+      <button class="modal-close" onclick="closeModal('modal-settings')" aria-label="Close">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="output-box" style="margin-bottom:16px;">
-        <div class="output-box-header">
-          <div class="output-box-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77"/>
-            </svg>
-            Transcript
+    <div class="modal-body" style="max-height:60vh; overflow-y:auto;">
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        
+        <!-- Default Summary Length -->
+        <div>
+          <label class="form-label" style="display:block; margin-bottom:10px; font-weight:600;">Default Summary Length</label>
+          <div style="display:flex; gap:10px;">
+            <button class="length-btn" id="settings-default-short" onclick="setSetting('defaultLength', 'short')">Short</button>
+            <button class="length-btn active" id="settings-default-medium" onclick="setSetting('defaultLength', 'medium')">Medium</button>
+            <button class="length-btn" id="settings-default-long" onclick="setSetting('defaultLength', 'long')">Long</button>
           </div>
-          <div class="output-box-actions">
-            <button class="btn-copy" onclick="copyText('record-transcript-text')">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-              </svg>
-              Copy
-            </button>
-          </div>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-top:8px;">Choose the default summary length for new transcriptions.</p>
         </div>
-        <div class="output-box-body">
-          <p class="output-text" id="record-transcript-text"></p>
-        </div>
-      </div>
 
-      <div class="output-box summary-box">
-        <div class="output-box-header">
-          <div class="output-box-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            Summary
-          </div>
-          <div class="output-box-actions">
-            <button class="btn-copy" onclick="copyText('record-summary-text')">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-              </svg>
-              Copy
-            </button>
-          </div>
+        <!-- Transcription Model -->
+        <div>
+          <label class="form-label" for="settings-model" style="display:block; margin-bottom:10px; font-weight:600;">Transcription Model</label>
+          <select id="settings-model" style="width:100%; padding:10px; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary);">
+            <option value="base">Base (Fastest)</option>
+            <option value="small" selected>Small (Recommended)</option>
+            <option value="medium">Medium (Most Accurate)</option>
+          </select>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-top:8px;">Select the Whisper model for audio transcription. Larger models are more accurate but slower.</p>
         </div>
-        <div class="output-box-body">
-          <p class="output-text" id="record-summary-text"></p>
-        </div>
-      </div>
 
-      <div class="output-box summary-box" style="margin-top:16px;">
-        <div class="output-box-header">
-          <div class="output-box-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 6h16M4 12h16M4 18h16M8 6H8.01M8 12H8.01M8 18H8.01"/>
-            </svg>
-            Key Points
-          </div>
-          <div class="output-box-actions">
-            <button class="btn-copy" onclick="copyText('record-key-points-text')">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-              </svg>
-              Copy
-            </button>
-          </div>
+        <!-- Auto-save Settings -->
+        <div>
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+            <input type="checkbox" id="settings-autosave" onchange="setSetting('autoSave', this.checked)" checked style="width:18px; height:18px; cursor:pointer;">
+            <span style="font-weight:600;">Auto-save transcriptions</span>
+          </label>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-top:8px; margin-left:28px;">Automatically save all transcriptions to your records.</p>
         </div>
-        <div class="output-box-body">
-          <ul class="output-text" id="record-key-points-text" style="margin-left: 0; list-style-type: none; padding: 0;"></ul>
-        </div>
+
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-record')">Close</button>
+      <button class="btn-ghost" onclick="closeModal('modal-settings')">Close</button>
+      <button class="btn-submit" onclick="saveSettings()">Save Settings</button>
     </div>
   </div>
 </div>
@@ -285,7 +507,18 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
         </svg>
-        Upload File
+        Upload Audio/Video
+      </div>
+
+      <div class="nav-item" onclick="openModal('modal-document')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Upload Document
       </div>
 
       <div class="nav-item" onclick="openModal('modal-text')">
@@ -302,59 +535,53 @@
         </svg>
         From URL
       </div>
-
-      <div class="nav-divider"></div>
-
-      <div class="nav-item" id="nav-settings" onclick="showToast('Settings coming soon!', 'info')">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-        Settings
-      </div>
-
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-profile">
+      <div class="user-profile" onclick="openSettingsModal()" style="cursor:pointer;" title="Open Settings">
         <div class="user-avatar" id="user-avatar-initials">?</div>
         <div class="user-info">
           <div class="user-name" id="sidebar-user-name">Loading…</div>
           <div class="user-email" id="sidebar-user-email">…</div>
         </div>
       </div>
-      <button class="btn-logout" id="btn-logout" onclick="handleLogout()">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-        </svg>
-        Sign Out
-      </button>
+      <div class="sidebar-footer-actions">
+        <button class="btn-settings" id="btn-settings" onclick="openSettingsModal()" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+        </button>
+        <button class="btn-logout" id="btn-logout" onclick="handleLogout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+          </svg>
+          Sign Out
+        </button>
+      </div>
     </div>
   </aside>
 
   <!-- Main Content -->
   <main class="main-content">
 
-    <div class="main-header">
+    <div class="main-header" style="display:flex; justify-content:space-between; align-items:center;">
       <div>
         <h1 class="greeting-text">Good <span id="greeting-part">afternoon</span>, <span id="greeting-name">there</span>! 👋</h1>
         <p class="greeting-sub" id="greeting-date">Loading…</p>
       </div>
-      <div class="header-actions">
-        <div class="search-bar">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" placeholder="Search records...">
-        </div>
-        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
-          <svg viewBox="0 0 24 24" id="theme-icon" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
-            <!-- Default Moon / Sun path will be set in JS -->
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-      </div>
+      <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark mode" style="background:transparent; border:none; cursor:pointer; color:var(--text-secondary); padding:8px; border-radius:50%; transition:all 0.3s ease;">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px; height:24px;">
+          <!-- Default to Moon (Dark Mode) -->
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+        </svg>
+      </button>
+      <button class="settings-btn" id="settings-btn" onclick="openSettingsModal()" aria-label="Settings" style="background:transparent; border:none; cursor:pointer; color:var(--text-secondary); padding:8px; border-radius:50%; transition:all 0.3s ease; display:flex; align-items:center; justify-content:center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px; height:24px;">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m3.08 3.08l4.24 4.24M1 12h6m6 0h6m-16.78 7.78l4.24-4.24m3.08-3.08l4.24-4.24"></path>
+        </svg>
+      </button>
     </div>
 
     <!-- ── Home Panel ─────────────────────────────────────────────────── -->
@@ -369,8 +596,29 @@
             </svg>
           </div>
           <div>
-            <div class="card-label">Upload Video / Audio</div>
+            <div class="card-label">Upload Video/Audio</div>
             <div class="card-desc">MP4, MP3, WAV, M4A and more. Up to 200 MB.</div>
+          </div>
+          <div class="card-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Upload Document -->
+        <div class="action-card card-document" onclick="openModal('modal-document')" role="button" tabindex="0" id="card-document" style="background: linear-gradient(135deg, rgba(30,58,138,0.2) 0%, rgba(30,58,138,0.05) 100%);">
+          <div class="card-icon icon-document" style="background: rgba(96,165,250,0.1); color: #60a5fa;">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <div class="card-label">Upload Document</div>
+            <div class="card-desc">PDF, Word, or PowerPoint files.</div>
           </div>
           <div class="card-arrow">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -428,6 +676,16 @@
            <div>
              <label class="form-label" for="stt-file-input">Upload Audio/Video file:</label>
              <input type="file" id="stt-file-input" accept=".mp3,.mp4,.wav,.m4a,.ogg,.webm,.flac,.mpeg" style="width: 100%; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary);">
+           </div>
+
+           <div class="record-controls" style="margin-top:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+             <button class="btn-primary" id="btn-start-recording" onclick="startRecording()" style="min-width:170px;">Start Voice Recording</button>
+             <button class="btn-ghost" id="btn-stop-recording" onclick="stopRecording()" disabled style="min-width:140px;">Stop Recording</button>
+             <span id="recording-status" style="color: var(--text-muted); font-size:0.92rem;">Ready to record.</span>
+           </div>
+
+           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+             <button class="btn-primary" id="btn-submit-voice" onclick="submitVoiceRecording()" disabled style="min-width:220px;">Transcribe &amp; Summarize Recording</button>
            </div>
            
            <div>
@@ -594,7 +852,6 @@
           
           <div class="length-selector" style="margin-bottom:0;">
             <button class="length-btn active" id="tab-flowchart" onclick="switchVisualTab('flowchart')">Flowchart</button>
-            <button class="length-btn" id="tab-mindmap" onclick="switchVisualTab('mindmap')">Mind Map</button>
             <button class="length-btn" id="tab-graph" onclick="switchVisualTab('graph')">Keyword Graph</button>
           </div>
 
@@ -603,10 +860,6 @@
               
               <div id="visual-flowchart" class="visual-content" style="width:100%; display:block;">
                 <div class="mermaid" id="mermaid-flowchart"></div>
-              </div>
-
-              <div id="visual-mindmap" class="visual-content" style="width:100%; display:none;">
-                <div class="mermaid" id="mermaid-mindmap"></div>
               </div>
 
               <div id="visual-graph" class="visual-content" style="width:100%; display:none; max-width:600px; margin:0 auto; padding-top:10px;">
@@ -629,13 +882,15 @@
         </svg>
         My Records
       </div>
-      <div class="records-grid" id="records-grid">
-        <div class="records-empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-          No records yet. Start by transcribing something!
+      <div class="records-container">
+        <div class="records-grid" id="records-grid">
+          <div class="records-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            No records yet. Start by transcribing something!
+          </div>
         </div>
       </div>
     </div>

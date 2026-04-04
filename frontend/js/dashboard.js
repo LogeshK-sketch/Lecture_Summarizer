@@ -1,46 +1,165 @@
 // dashboard.js – All dashboard UI logic
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Theme Management ───────────────────────────────────────────────────────
-function initTheme() {
-  const savedTheme = localStorage.getItem('theme');
-  const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-  if (savedTheme === 'light' || (!savedTheme && prefersLight)) {
-    document.body.classList.add('light-mode');
+// ── State ──────────────────────────────────────────────────────────────────
+let currentUser        = null;
+let currentTranscript  = '';
+let currentSourceType  = 'text';
+let currentSourceName  = '';
+let selectedFile       = null;
+let selectedDocument   = null;
+let recordedAudioFile  = null;
+let mediaRecorder      = null;
+let audioStream        = null;
+let recordingStartTime = null;
+let recordingTimer     = null;
+let lengthSettings     = { upload: 'medium', document: 'medium', text: 'medium', url: 'medium', result: 'medium' };
+
+// ── Settings State ─────────────────────────────────────────────────────────
+let appSettings = {
+  defaultLength: 'medium',
+  transcriptionModel: 'base',
+};
+
+// Load settings on boot
+function loadSettings() {
+  const saved = localStorage.getItem('appSettings');
+  if (saved) {
+    try { appSettings = { ...appSettings, ...JSON.parse(saved) }; }
+    catch(e) { console.error('Failed to load settings:', e); }
   }
-  updateThemeIcon();
+  syncSettingsUI();
+  // Apply default lengths globally
+  Object.keys(lengthSettings).forEach(k => { lengthSettings[k] = appSettings.defaultLength; });
 }
+
+function syncSettingsUI() {
+  // Length buttons
+  ['short', 'medium', 'long'].forEach(len => {
+    const btn = document.getElementById(`sopt-${len}`);
+    if (btn) btn.classList.toggle('active', len === appSettings.defaultLength);
+  });
+  // Model dropdown in settings panel
+  const sel = document.getElementById('settings-model-select');
+  if (sel) sel.value = appSettings.transcriptionModel;
+  // STT model select in main panel
+  const stt = document.getElementById('stt-model-select');
+  if (stt) stt.value = appSettings.transcriptionModel;
+  // Theme toggle checkbox
+  const themeChk = document.getElementById('settings-theme-toggle');
+  const themeLabel = document.getElementById('settings-theme-label');
+  const isLight = document.body.classList.contains('light-mode');
+  if (themeChk) themeChk.checked = isLight;
+  if (themeLabel) themeLabel.textContent = isLight ? 'Light' : 'Dark';
+}
+
+function openSettingsModal() {
+  // Populate account info when opening
+  if (currentUser) {
+    const nameEl = document.getElementById('settings-display-name');
+    const emailEl = document.getElementById('settings-email');
+    if (nameEl) nameEl.textContent = currentUser.displayName || 'Not set';
+    if (emailEl) emailEl.textContent = currentUser.email || 'Not set';
+  }
+  syncSettingsUI();
+  openModal('modal-settings');
+}
+
+function setDefaultLength(len) {
+  appSettings.defaultLength = len;
+  ['short', 'medium', 'long'].forEach(l => {
+    const btn = document.getElementById(`sopt-${l}`);
+    if (btn) btn.classList.toggle('active', l === len);
+  });
+  Object.keys(lengthSettings).forEach(k => { lengthSettings[k] = len; });
+  localStorage.setItem('appSettings', JSON.stringify(appSettings));
+  showToast(`Default length set to "${len}"`, 'success', 2000);
+}
+
+function setDefaultModel(model) {
+  appSettings.transcriptionModel = model;
+  const stt = document.getElementById('stt-model-select');
+  if (stt) stt.value = model;
+  localStorage.setItem('appSettings', JSON.stringify(appSettings));
+  showToast(`Whisper model set to "${model}"`, 'success', 2000);
+}
+
+function settingsToggleTheme(isLight) {
+  if (isLight) {
+    document.body.classList.add('light-mode');
+    localStorage.setItem('theme', 'light');
+  } else {
+    document.body.classList.remove('light-mode');
+    localStorage.setItem('theme', 'dark');
+  }
+  const label = document.getElementById('settings-theme-label');
+  if (label) label.textContent = isLight ? 'Light' : 'Dark';
+  // also sync the header theme icon
+  const svgIcon = document.getElementById('theme-icon');
+  if (svgIcon) {
+    svgIcon.innerHTML = isLight
+      ? `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`
+      : `<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>`;
+  }
+}
+
+async function sendPasswordReset() {
+  if (!currentUser || !currentUser.email) {
+    showToast('No user email found.', 'error'); return;
+  }
+  try {
+    await firebase.auth().sendPasswordResetEmail(currentUser.email);
+    showToast(`Password reset email sent to ${currentUser.email}`, 'success');
+  } catch(e) {
+    showToast(`Error: ${e.message}`, 'error');
+  }
+}
+
+async function deleteAllRecords() {
+  if (!confirm('Are you sure? This will permanently delete ALL your records.')) return;
+  showSpinner('Deleting records…', 'This may take a moment');
+  try {
+    const res = await apiGetRecords();
+    const records = res.records || [];
+    await Promise.all(records.map(r => apiDeleteRecord(r.id)));
+    showToast(`Deleted ${records.length} record(s).`, 'success');
+    const grid = document.getElementById('records-grid');
+    if (grid) grid.innerHTML = '';
+  } catch(e) {
+    showToast(`Error: ${e.message}`, 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+
+
+
+// ── Theme State ────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  const savedTheme = localStorage.getItem('theme');
+  // the design defaults to dark theme, so we only apply light mode if saved
+  if (savedTheme === 'light') {
+    document.body.classList.add('light-mode');
+    const svgIcon = document.getElementById('theme-icon');
+    if(svgIcon) svgIcon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
+  }
+});
 
 function toggleTheme() {
-  document.body.classList.toggle('light-mode');
-  const isLight = document.body.classList.contains('light-mode');
+  const isLight = document.body.classList.toggle('light-mode');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
-  updateThemeIcon();
-}
-
-function updateThemeIcon() {
-  const isLight = document.body.classList.contains('light-mode');
-  const icon = document.getElementById('theme-icon');
-  if (!icon) return;
-  if (isLight) {
-    // Moon icon for switching back to dark
-    icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
-  } else {
-    // Sun icon for switching to light
-    icon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
+  const svgIcon = document.getElementById('theme-icon');
+  if(svgIcon) {
+    if (isLight) {
+      // Sun Icon
+      svgIcon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
+    } else {
+      // Moon Icon
+      svgIcon.innerHTML = `<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>`;
+    }
   }
 }
-
-// ── State ──────────────────────────────────────────────────────────────────
-let currentUser      = null;
-let currentTranscript = '';
-let currentSourceType = 'text';
-let currentSourceName = '';
-let selectedFile     = null;
-let lengthSettings   = { upload: 'medium', text: 'medium', url: 'medium', result: 'medium' };
-
-// Initialize theme immediately on load
-initTheme();
 
 // ── Auth Guard ─────────────────────────────────────────────────────────────
 firebase.auth().onAuthStateChanged((user) => {
@@ -74,6 +193,9 @@ function initDashboard(user) {
   const initials = (user.displayName || user.email || '?')
     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   document.getElementById('user-avatar-initials').textContent = initials;
+
+  // Apply saved settings
+  loadSettings();
 }
 
 // ── Panel switching ────────────────────────────────────────────────────────
@@ -85,6 +207,22 @@ function switchPanel(name) {
   document.getElementById(`nav-${name}`).classList.add('active');
 
   if (name === 'records') loadRecords();
+}
+
+function switchRecordTab(tabId) {
+  ['transcript', 'summary', 'points'].forEach(id => {
+    const btn = document.getElementById(`tab-${id}`);
+    const content = document.getElementById(`tab-${id}`);
+    if (btn && content) {
+      if (id === tabId) {
+        btn.classList.add('active');
+        content.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+        content.classList.remove('active');
+      }
+    }
+  });
 }
 
 // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -119,6 +257,108 @@ function setLength(modalType, len) {
     const btn = document.getElementById(`${modalType}-len-${l}`);
     if (btn) btn.classList.toggle('active', l === len);
   });
+}
+
+function updateRecordingStatus(message, active = false) {
+  const statusEl = document.getElementById('recording-status');
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.style.color = active ? 'var(--accent)' : 'var(--text-muted)';
+}
+
+function formatRecordingTime(seconds) {
+  const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+async function startRecording() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('Your browser does not support microphone recording.', 'error');
+    return;
+  }
+
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(audioStream);
+    const chunks = [];
+
+    mediaRecorder.addEventListener('dataavailable', event => {
+      if (event.data && event.data.size > 0) chunks.push(event.data);
+    });
+
+    mediaRecorder.addEventListener('stop', () => {
+      recordedAudioFile = new File(chunks, 'voice_recording.webm', { type: 'audio/webm' });
+      document.getElementById('btn-submit-voice').disabled = false;
+      updateRecordingStatus(`Recording complete — ${formatRecordingTime((Date.now() - recordingStartTime) / 1000)}`);
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        audioStream = null;
+      }
+      clearInterval(recordingTimer);
+      recordingTimer = null;
+    });
+
+    mediaRecorder.start();
+    recordingStartTime = Date.now();
+    updateRecordingStatus('Recording... 00:00', true);
+    document.getElementById('btn-start-recording').disabled = true;
+    document.getElementById('btn-stop-recording').disabled = false;
+    document.getElementById('btn-submit-voice').disabled = true;
+
+    recordingTimer = setInterval(() => {
+      const elapsed = (Date.now() - recordingStartTime) / 1000;
+      updateRecordingStatus(`Recording... ${formatRecordingTime(elapsed)}`, true);
+    }, 500);
+  } catch (err) {
+    showToast(`Unable to start recording: ${err.message}`, 'error');
+  }
+}
+
+function stopRecording() {
+  if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+    return;
+  }
+  mediaRecorder.stop();
+  document.getElementById('btn-start-recording').disabled = false;
+  document.getElementById('btn-stop-recording').disabled = true;
+}
+
+async function submitVoiceRecording() {
+  if (!recordedAudioFile) {
+    showToast('Please record your voice first.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-voice');
+  btn.disabled = true;
+
+  try {
+    showSpinner('Transcribing voice…', 'Uploading your recording and transcribing to text');
+    const transcribeRes = await apiTranscribeFile(recordedAudioFile);
+    currentTranscript = transcribeRes.transcript;
+    currentSourceType = 'voice';
+    currentSourceName = 'Voice recording';
+    displayTranscript(currentTranscript);
+
+    updateSpinner('Generating summary…', 'Extracting key points with LSA');
+    const summarizeRes = await apiSummarize(
+      currentTranscript,
+      lengthSettings.upload,
+      currentSourceType,
+      currentSourceName
+    );
+    displaySummary(summarizeRes.summary);
+    displayKeyPoints(summarizeRes.key_points);
+    showToast('Voice transcription and summary complete!', 'success');
+    lengthSettings.result = lengthSettings.upload;
+    syncResultLengthBtns();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  } finally {
+    hideSpinner();
+    btn.disabled = false;
+  }
 }
 
 function resummarize(len) {
@@ -222,10 +462,71 @@ async function submitUpload() {
   }
 }
 
+// ── Submit: Document Upload ────────────────────────────────────────────────
+function handleDocDrop(e) {
+  e.preventDefault();
+  document.getElementById('document-drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleDocSelect(file);
+}
+
+function handleDocSelect(file) {
+  if (!file) return;
+  selectedDocument = file;
+  document.getElementById('document-filename').textContent = `📄 ${file.name}`;
+  document.getElementById('btn-submit-document').disabled = false;
+}
+
+async function submitDocument() {
+  if (!selectedDocument) return;
+  const btn = document.getElementById('btn-submit-document');
+  btn.disabled = true;
+  closeModal('modal-document');
+
+  try {
+    showSpinner('Processing document…', 'Extracting text and generating summary');
+    const docRes = await apiUploadDocument(selectedDocument, lengthSettings['document']);
+    
+    currentTranscript  = docRes.transcript;
+    currentSourceType  = 'file';
+    currentSourceName  = docRes.file_name || selectedDocument.name;
+    
+    displayTranscript(currentTranscript);
+    displaySummary(docRes.summary);
+    displayKeyPoints(docRes.key_points);
+    showToast('Document summarized successfully!', 'success');
+    
+    lengthSettings['result'] = lengthSettings['document'];
+    syncResultLengthBtns();
+
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  } finally {
+    hideSpinner();
+    btn.disabled = false;
+    selectedDocument = null;
+    document.getElementById('document-filename').textContent = '';
+  }
+}
+
 // ── Submit: Paste Text ────────────────────────────────────────────────────
 async function submitText() {
   const text = document.getElementById('paste-text').value.trim();
   if (!text) { showToast('Please paste some text first.', 'error'); return; }
+
+  // Detect if the pasted text is a URL
+  try {
+    const parsedUrl = new URL(text);
+    if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+      closeModal('modal-text');
+      document.getElementById('url-input').value = text;
+      lengthSettings['url'] = lengthSettings['text'];
+      submitUrl();
+      return;
+    }
+  } catch (e) {
+    // Not a valid URL, continue as text
+  }
 
   const btn = document.getElementById('btn-submit-text');
   btn.disabled = true;
@@ -378,12 +679,24 @@ function renderRecords(records) {
         </svg>
         No records yet. Start by transcribing something!
       </div>`;
+    
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+
     return;
   }
 
+  // Order records newest first by created_at timestamp.
+  records = records.slice().sort((a, b) => {
+    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bTime - aTime;
+  });
+
   grid.innerHTML = records.map(r => {
-    const badgeClass = { file: 'badge-file', text: 'badge-text', url: 'badge-url' }[r.source_type] || 'badge-text';
-    const badgeLabel = { file: '📁 File', text: '✏️ Text', url: '🔗 URL' }[r.source_type] || r.source_type;
+    const badgeClass = { file: 'badge-file', text: 'badge-text', url: 'badge-url', voice: 'badge-voice' }[r.source_type] || 'badge-text';
+    const badgeLabel = { file: '📁 File', text: '✏️ Text', url: '🔗 URL', voice: '🎙️ Voice' }[r.source_type] || r.source_type;
     const date = r.created_at ? new Date(r.created_at).toLocaleString() : '';
     const preview = (r.summary || '').slice(0, 200);
 
@@ -411,6 +724,10 @@ function renderRecords(records) {
       </div>
     </div>`;
   }).join('');
+
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+  }, 100);
 }
 
 function openRecord(record) {
@@ -504,7 +821,7 @@ async function exportNotes(type) {
 let myChartInstance = null;
 
 function switchVisualTab(tabId) {
-  ['flowchart', 'mindmap', 'graph'].forEach(id => {
+  ['flowchart', 'graph'].forEach(id => {
     const btn = document.getElementById(`tab-${id}`);
     const content = document.getElementById(`visual-${id}`);
     if (btn && content) {
@@ -557,15 +874,9 @@ async function generateVisuals() {
     fNode.innerHTML = data.flowchart;
     fNode.removeAttribute('data-processed');
 
-    // Mind Map
-    const mNode = document.getElementById('mermaid-mindmap');
-    mNode.innerHTML = data.mindmap;
-    mNode.removeAttribute('data-processed');
-
     // Render Mermaid diagrams
     if (typeof mermaid !== 'undefined') {
       try { mermaid.init(undefined, "#mermaid-flowchart"); } catch(e) {}
-      try { mermaid.init(undefined, "#mermaid-mindmap"); } catch(e) {}
     }
 
     // Chart.js Graph
@@ -689,3 +1000,7 @@ async function handleTranscription() {
   }
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  loadSettings();
+  loadRecords();
+});

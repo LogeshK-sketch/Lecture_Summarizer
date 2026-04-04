@@ -4,8 +4,13 @@ app.py – Main Flask API server for Lecture Summarizer
 import os
 import tempfile
 import re
+import json
 from collections import Counter
 from functools import wraps
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv()
 
 from flask import Flask, request, jsonify, send_from_directory, send_file
 import io
@@ -17,17 +22,26 @@ from flask_cors import CORS
 from transcriber import transcribe_file, transcribe_youtube, transcribe_text_passthrough
 from summarizer import summarize_text
 from firestore_client import verify_id_token, save_record, get_user_records, delete_record
+from doc_extractor import extract_text_from_file
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
 
+nim_client = None
+if os.getenv("NVIDIA_API_KEY"):
+    nim_client = OpenAI(
+      base_url="https://integrate.api.nvidia.com/v1",
+      api_key=os.getenv("NVIDIA_API_KEY")
+    )
+
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 ALLOWED_EXTENSIONS = {
-    "mp3", "mp4", "wav", "m4a", "ogg", "webm", "flac", "mpeg", "mpga"
+    "mp3", "mp4", "wav", "m4a", "ogg", "webm", "flac", "mpeg", "mpga",
+    "pdf", "docx", "pptx"
 }
 
 MAX_FILE_SIZE_MB = 200
@@ -140,6 +154,70 @@ def api_transcribe():
 
     except Exception as e:
         print(f"[/api/transcribe] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/upload-document", methods=["POST"])
+@require_auth
+def api_upload_document():
+    """
+    Accepts a PDF, DOCX, or PPTX file.
+    Returns: { summary, key_points, transcript, file_name }
+    """
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded."}), 400
+        uploaded_file = request.files["file"]
+        if not uploaded_file.filename:
+            return jsonify({"error": "Empty filename."}), 400
+        
+        ext = uploaded_file.filename.rsplit(".", 1)[1].lower()
+        if ext not in ["pdf", "docx", "pptx"]:
+            return jsonify({"error": f"Unsupported document format: {ext}"}), 400
+
+        with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+            uploaded_file.save(tmp.name)
+            tmp_path = tmp.name
+
+        try:
+            transcript = extract_text_from_file(tmp_path)
+        finally:
+            os.unlink(tmp_path)
+
+        if not transcript:
+            return jsonify({"error": "Could not extract text from document."}), 400
+
+        summary_length = request.form.get("summary_length", "medium")
+        if summary_length not in ("short", "medium", "long"):
+            summary_length = "medium"
+
+        summary_res = summarize_text(transcript, summary_length)
+        summary = summary_res.get("summary", "")
+        key_points = summary_res.get("key_points", [])
+
+        user_uid = request.user.get("uid", "")
+        user_email = request.user.get("email", "")
+
+        save_record(
+            user_uid=user_uid,
+            user_email=user_email,
+            transcript=transcript,
+            summary=summary,
+            source_type="file",
+            source_name=uploaded_file.filename,
+            summary_length=summary_length,
+            key_points=key_points,
+        )
+
+        return jsonify({
+            "summary": summary,
+            "key_points": key_points,
+            "transcript": transcript,
+            "file_name": uploaded_file.filename
+        })
+
+    except Exception as e:
+        print(f"[/api/upload-document] Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -299,46 +377,66 @@ def api_visualize():
         summary = data.get("summary", "")
         key_points = data.get("key_points", [])
 
-        # 1. Flowchart Generation
-        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', summary) if len(s.strip()) > 5]
-        if not sentences:
-            sentences = ["No summary available"]
-        
+        # Fallback values
+        labels = [c[0] for c in Counter([w for w in re.findall(r'\b[a-zA-Z]{3,}\b', summary.lower()) if w not in {"the", "and", "but", "for", "with", "this", "that", "are", "was", "were", "not", "have", "has", "had", "can", "could", "would", "from", "their", "them", "these", "some", "what", "which", "when", "where", "also", "into", "been", "only", "most", "more"}]).most_common(6)]
+        values = [c[1] for c in Counter([w for w in re.findall(r'\b[a-zA-Z]{3,}\b', summary.lower()) if w not in {"the", "and", "but", "for", "with", "this", "that", "are", "was", "were", "not", "have", "has", "had", "can", "could", "would", "from", "their", "them", "these", "some", "what", "which", "when", "where", "also", "into", "been", "only", "most", "more"}]).most_common(6)]
+
+        if nim_client and summary:
+            try:
+                prompt = f"""Analyze the following lecture summary and generate structured visual insights.
+
+Return JSON with:
+{{
+  "flowchart": "Mermaid flowchart code",
+  "mindmap": "Mermaid mindmap code",
+  "keywords": {{
+    "labels": [],
+    "values": []
+  }}
+}}
+
+Rules:
+- Flowchart must show logical progression
+- Mindmap must show hierarchy
+- Keywords must reflect main concepts
+- Output must be valid JSON only
+
+TEXT:
+{summary}"""
+                completion = nim_client.chat.completions.create(
+                  model="meta/llama3-8b-instruct",
+                  messages=[{"role":"user","content":prompt}],
+                  temperature=0.5,
+                  top_p=1,
+                  max_tokens=1024,
+                )
+                
+                raw_content = completion.choices[0].message.content.strip()
+                if raw_content.startswith("```json"):
+                    raw_content = raw_content.split("```json", 1)[1]
+                if raw_content.endswith("```"):
+                    raw_content = raw_content.rsplit("```", 1)[0]
+                
+                ai_data = json.loads(raw_content.strip())
+                return jsonify({
+                    "flowchart": ai_data.get("flowchart", "graph TD\\n  A[Error reading flowchart]"),
+                    "mindmap": ai_data.get("mindmap", "mindmap\\n  root((Summary))"),
+                    "graph_data": ai_data.get("keywords", {"labels": labels, "values": values})
+                })
+            except Exception as e:
+                print(f"[AI Visualize] Error: {e}")
+                # Fall back to heuristic below if AI fails
+
+        # Fallback 1. Flowchart Generation
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', summary) if len(s.strip()) > 5] or ["No summary available"]
         flowchart = "graph TD\n"
         for i, sent in enumerate(sentences):
-            safe_text = sent.replace('[', '(').replace(']', ')').replace('"', "'").replace('\n', ' ')
-            if len(safe_text) > 80:
-                safe_text = safe_text[:77] + "..."
+            flowchart += f'  N{i}["{sent[:77]+"..." if len(sent)>80 else sent}"]\n'
+            if i > 0: flowchart += f'  N{i-1} --> N{i}\n'
             
-            node_id = f"N{i}"
-            flowchart += f'  {node_id}["{safe_text}"]\n'
-            if i > 0:
-                flowchart += f'  N{i-1} --> {node_id}\n'
-        
-        # 2. Mind Map Generation
-        mindmap = "mindmap\n  root((Summary))\n"
-        for i, pt in enumerate(key_points):
-            safe_pt = pt.replace('(', '').replace(')', '').replace('\n', ' ').replace('"', "'")
-            if len(safe_pt) > 50:
-                safe_pt = safe_pt[:47] + "..."
-            mindmap += f'    Node{i}["{safe_pt}"]\n'
-
-        # 3. Graph Data Generation
-        words = re.findall(r'\b[a-zA-Z]{3,}\b', summary.lower())
-        stop_words = {
-            "the", "and", "but", "for", "with", "this", "that", "are", "was", "were", "not", "have", 
-            "has", "had", "can", "could", "would", "from", "their", "them", "these", "some", "what",
-            "which", "when", "where", "also", "into", "been", "only", "most", "more"
-        }
-        filtered_words = [w for w in words if w not in stop_words]
-        
-        counts = Counter(filtered_words).most_common(6)
-        labels = [c[0] for c in counts]
-        values = [c[1] for c in counts]
-
         return jsonify({
             "flowchart": flowchart,
-            "mindmap": mindmap,
+            "mindmap": "mindmap\\n  root((Summary fallback))",
             "graph_data": {
                 "labels": labels,
                 "values": values
@@ -369,7 +467,9 @@ def serve_static(path):
 # ─── Run ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    debug = os.environ.get("DEBUG", "1") == "1"
-    print(f"[App] Starting Lecture Summarizer on http://localhost:{port}")
+    port = int(os.environ.get("PORT", 10000))
+    # Disable debug in production; enable only when DEBUG=1 and not in production
+    flask_env = os.environ.get("FLASK_ENV", "development")
+    debug = flask_env != "production" and os.environ.get("DEBUG", "1") == "1"
+    print(f"[App] Starting Lecture Summarizer on http://0.0.0.0:{port} (env={flask_env})")
     app.run(host="0.0.0.0", port=port, debug=debug)

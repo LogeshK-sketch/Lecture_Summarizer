@@ -1,7 +1,9 @@
 """
 firestore_client.py – Firebase Admin SDK wrapper for Firestore operations.
+Supports credentials from file (local dev) or JSON env var (production).
 """
 import os
+import json
 from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -12,14 +14,27 @@ SERVICE_ACCOUNT_PATH = os.path.join(
 
 # Initialize Firebase Admin SDK once
 if not firebase_admin._apps:
-    if os.path.exists(SERVICE_ACCOUNT_PATH):
+    # Priority 1: env var with JSON string (for production / Render)
+    creds_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+    if creds_json:
+        try:
+            creds_dict = json.loads(creds_json)
+            cred = credentials.Certificate(creds_dict)
+            firebase_admin.initialize_app(cred)
+            print("[Firestore] Firebase Admin SDK initialized from environment variable.")
+        except Exception as e:
+            print(f"[Firestore] ERROR: Failed to parse FIREBASE_CREDENTIALS_JSON: {e}")
+
+    # Priority 2: local service account file (for local dev)
+    elif os.path.exists(SERVICE_ACCOUNT_PATH):
         cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
         firebase_admin.initialize_app(cred)
-        print("[Firestore] Firebase Admin SDK initialized with service account.")
+        print("[Firestore] Firebase Admin SDK initialized with service account file.")
+
     else:
         print(
-            "[Firestore] WARNING: serviceAccountKey.json not found! "
-            "Firestore operations will fail. See README.md for setup."
+            "[Firestore] WARNING: No Firebase credentials found! "
+            "Set FIREBASE_CREDENTIALS_JSON env var or provide serviceAccountKey.json."
         )
 
 _db = None
