@@ -1,0 +1,16 @@
+flask
+flask-cors
+openai
+groq
+python-dotenv
+sumy
+firebase-admin
+yt-dlp
+nltk
+reportlab
+PyPDF2
+python-docx
+python-pptx
+pdfplumber
+gunicorn
+imageio-ffmpeg
