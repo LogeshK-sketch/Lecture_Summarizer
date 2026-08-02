@@ -27,7 +27,7 @@ from doc_extractor import extract_text_from_file
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
+FRONTEND_DIR = os.path.join(BASE_DIR, "..", "react-frontend", "dist")
 
 nim_client = None
 if os.getenv("NVIDIA_API_KEY"):
@@ -456,7 +456,7 @@ def serve_index():
 
 @app.route("/dashboard")
 def serve_dashboard():
-    return send_from_directory(FRONTEND_DIR, "dashboard.html")
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 @app.route("/<path:path>")
